@@ -1,0 +1,116 @@
+{% extends "base.html" %}
+{% block title %}{{ movie.movie_name }} - 豆瓣电影分析系统{% endblock %}
+
+{% block content %}
+<nav aria-label="breadcrumb">
+    <ol class="breadcrumb">
+        <li class="breadcrumb-item"><a href="/">首页</a></li>
+        <li class="breadcrumb-item"><a href="/movies">电影列表</a></li>
+        <li class="breadcrumb-item active">{{ movie.movie_name }}</li>
+    </ol>
+</nav>
+
+<div class="row">
+    <div class="col-md-8">
+        <h1>{{ movie.movie_name }}</h1>
+
+        {% if movie.douban_score %}
+        <h2 class="star my-3">★ {{ movie.douban_score }}
+            <small class="text-muted fs-6">{{ movie.rating_count or 0 }} 人评价</small>
+        </h2>
+        {% endif %}
+
+        {% if movie.intro %}
+        <h5 class="mt-4">📖 剧情简介</h5>
+        <p class="text-muted">{{ movie.intro }}</p>
+        {% endif %}
+
+        <hr>
+
+        <h5>🎭 类型</h5>
+        <p>
+            {% for g in genres %}
+            <span class="badge bg-secondary me-1">{{ g }}</span>
+            {% else %}
+            <span class="text-muted">暂无</span>
+            {% endfor %}
+        </p>
+
+        {% if persons %}
+        <h5>👥 演职人员</h5>
+        <table class="table table-sm">
+            <tbody>
+                {% for p in persons if p.role == 'director' %}
+                <tr><td width="80"><strong>导演</strong></td><td>{{ p.person_name }}</td></tr>
+                {% endfor %}
+                {% for p in persons if p.role == 'writer' %}
+                <tr><td width="80"><strong>编剧</strong></td><td>{{ p.person_name }}</td></tr>
+                {% endfor %}
+                {% for p in persons if p.role == 'actor' %}
+                <tr><td width="80"><strong>主演</strong></td><td>{{ p.person_name }}</td></tr>
+                {% endfor %}
+            </tbody>
+        </table>
+        {% endif %}
+    </div>
+
+    <div class="col-md-4">
+        <div class="card">
+            <div class="card-header"><strong>📋 基本信息</strong></div>
+            <ul class="list-group list-group-flush">
+                <li class="list-group-item">
+                    <small class="text-muted">制片国家/地区</small><br>
+                    {{ movie.country or '-' }}
+                </li>
+                <li class="list-group-item">
+                    <small class="text-muted">语言</small><br>
+                    {{ movie.language or '-' }}
+                </li>
+                <li class="list-group-item">
+                    <small class="text-muted">上映日期</small><br>
+                    {{ movie.release_date or '-' }}
+                </li>
+                <li class="list-group-item">
+                    <small class="text-muted">片长</small><br>
+                    {{ movie.duration or '-' }}
+                </li>
+                {% if movie.imdb_url %}
+                <li class="list-group-item">
+                    <small class="text-muted">IMDb</small><br>
+                    <a href="{{ movie.imdb_url }}" target="_blank">{{ movie.imdb_url }}</a>
+                </li>
+                {% endif %}
+                {% if movie.alias_name %}
+                <li class="list-group-item">
+                    <small class="text-muted">又名</small><br>
+                    {{ movie.alias_name }}
+                </li>
+                {% endif %}
+                <li class="list-group-item">
+                    <small class="text-muted">数据更新时间</small><br>
+                    {{ movie.crawl_time or '-' }}
+                </li>
+            </ul>
+        </div>
+    </div>
+</div>
+
+{% if comments %}
+<hr>
+<h5>💬 热门短评</h5>
+{% for c in comments %}
+<div class="card mb-2">
+    <div class="card-body">
+        <div class="d-flex justify-content-between">
+            <strong>{{ c.nickname or '匿名' }}</strong>
+            <small class="text-muted">
+                👍 {{ c.useful_num or 0 }} | {{ c.comment_time or '' }}
+            </small>
+        </div>
+        <p class="mb-0 mt-2">{{ c.content }}</p>
+    </div>
+</div>
+{% endfor %}
+{% endif %}
+
+{% endblock %}

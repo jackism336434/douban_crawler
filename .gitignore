@@ -1,0 +1,38 @@
+# Python
+
+**pycache**/
+*.py[cod]
+*.log
+
+# Conda / Virtual Environment
+
+.venv/
+venv/
+env/
+
+# Scrapy
+
+.scrapy/
+
+# Node.js
+
+node_modules/
+
+# VSCode
+
+.vscode/
+
+# Database & Data Files
+
+*.db
+*.sqlite3
+*.sql
+data/
+output/
+
+# System Files
+
+.DS_Store
+Thumbs.db
+CLAUDE.md
+.claude/

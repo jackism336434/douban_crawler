@@ -1,0 +1,74 @@
+{% extends "base.html" %}
+{% block title %}电影列表 - 豆瓣电影分析系统{% endblock %}
+
+{% block content %}
+<h1 class="mb-4">🎬 电影列表 <small class="text-muted fs-6">共 {{ total }} 部</small></h1>
+
+<form class="row g-2 mb-4" method="get">
+    <div class="col-md-6">
+        <input type="text" name="search" class="form-control"
+               placeholder="搜索电影名称..." value="{{ search }}">
+    </div>
+    <div class="col-md-2">
+        <button type="submit" class="btn btn-primary w-100">搜索</button>
+    </div>
+    {% if search %}
+    <div class="col-md-2">
+        <a href="/movies" class="btn btn-outline-secondary w-100">清除</a>
+    </div>
+    {% endif %}
+</form>
+
+{% if movies %}
+<table class="table table-hover">
+    <thead class="table-light">
+        <tr>
+            <th>#</th>
+            <th>电影名称</th>
+            <th>豆瓣评分</th>
+            <th>评价人数</th>
+            <th>国家/地区</th>
+            <th>上映日期</th>
+            <th>操作</th>
+        </tr>
+    </thead>
+    <tbody>
+        {% for m in movies %}
+        <tr>
+            <td>{{ m.movie_id }}</td>
+            <td>{{ m.movie_name }}</td>
+            <td>
+                {% if m.douban_score %}
+                <span class="star">★</span> {{ m.douban_score }}
+                {% else %}-{% endif %}
+            </td>
+            <td>{{ m.rating_count or 0 }}</td>
+            <td>{{ m.country or '-' }}</td>
+            <td>{{ m.release_date or '-' }}</td>
+            <td>
+                <a href="/movies/{{ m.movie_id }}" class="btn btn-sm btn-outline-primary">详情</a>
+            </td>
+        </tr>
+        {% endfor %}
+    </tbody>
+</table>
+
+<nav>
+    <ul class="pagination">
+        <li class="page-item {{ 'disabled' if page <= 1 }}">
+            <a class="page-link" href="?page={{ page - 1 }}&search={{ search }}">上一页</a>
+        </li>
+        {% for p in range(1, total_pages + 1) %}
+        <li class="page-item {{ 'active' if p == page }}">
+            <a class="page-link" href="?page={{ p }}&search={{ search }}">{{ p }}</a>
+        </li>
+        {% endfor %}
+        <li class="page-item {{ 'disabled' if page >= total_pages }}">
+            <a class="page-link" href="?page={{ page + 1 }}&search={{ search }}">下一页</a>
+        </li>
+    </ul>
+</nav>
+{% else %}
+<div class="alert alert-info">暂无电影数据。请先运行爬虫。</div>
+{% endif %}
+{% endblock %}

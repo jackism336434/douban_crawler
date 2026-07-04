@@ -1,0 +1,81 @@
+{% extends "base.html" %}
+{% block title %}首页 - 豆瓣电影分析系统{% endblock %}
+
+{% block content %}
+<h1 class="mb-4">📊 系统总览</h1>
+
+<div class="row g-4 mb-4">
+    <div class="col-md-4">
+        <div class="stat-card bg-primary text-white">
+            <div class="text-uppercase small">电影总数</div>
+            <div class="number">{{ stats.total_movies | default(0) }}</div>
+        </div>
+    </div>
+    <div class="col-md-4">
+        <div class="stat-card bg-success text-white">
+            <div class="text-uppercase small">平均评分</div>
+            <div class="number">{{ stats.avg_score | default(0) }}</div>
+        </div>
+    </div>
+    <div class="col-md-4">
+        <div class="stat-card bg-info text-white">
+            <div class="text-uppercase small">类型数</div>
+            <div class="number">{{ stats.total_genres | default(0) }}</div>
+        </div>
+    </div>
+</div>
+
+<div class="row g-4 mb-4">
+    <div class="col-md-6">
+        <div class="stat-card bg-warning text-dark">
+            <div class="text-uppercase small">短评总数</div>
+            <div class="number">{{ stats.total_comments | default(0) }}</div>
+        </div>
+    </div>
+    <div class="col-md-6">
+        <div class="stat-card bg-danger text-white">
+            <div class="text-uppercase small">影评总数</div>
+            <div class="number">{{ stats.total_reviews | default(0) }}</div>
+        </div>
+    </div>
+</div>
+
+<h3 class="mb-3">🆕 最近添加的电影</h3>
+{% if recent_movies %}
+<table class="table table-hover">
+    <thead class="table-light">
+        <tr>
+            <th>电影名称</th>
+            <th>豆瓣评分</th>
+            <th>评价人数</th>
+            <th>操作</th>
+        </tr>
+    </thead>
+    <tbody>
+        {% for m in recent_movies %}
+        <tr>
+            <td>{{ m.movie_name }}</td>
+            <td>
+                {% if m.douban_score %}
+                <span class="star">★</span> {{ m.douban_score }}
+                {% else %}
+                -
+                {% endif %}
+            </td>
+            <td>{{ m.rating_count or 0 }}</td>
+            <td>
+                <a href="/movies/{{ m.movie_id }}" class="btn btn-sm btn-outline-primary">详情</a>
+            </td>
+        </tr>
+        {% endfor %}
+    </tbody>
+</table>
+{% else %}
+<div class="alert alert-info">暂无数据。请先运行爬虫抓取电影信息。</div>
+{% endif %}
+
+<div class="mt-4">
+    <a href="/movies" class="btn btn-primary">浏览全部电影</a>
+    <a href="/analysis" class="btn btn-outline-secondary">查看数据分析</a>
+</div>
+{% endblock %}

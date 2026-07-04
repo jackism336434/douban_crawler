@@ -1,103 +1,198 @@
-# Define here the models for your spider middleware
-#
-# See documentation in:
-# https://docs.scrapy.org/en/latest/topics/spider-middleware.html
+import hashlib
+import random
+import re
+import logging
 
-from scrapy import signals
+from scrapy import signals, Request, FormRequest
+from scrapy.exceptions import IgnoreRequest
 
-# useful for handling different item types with a single interface
-from itemadapter import is_item, ItemAdapter
+logger = logging.getLogger(__name__)
 
 
-class CrawlerSpiderMiddleware:
-    # Not all methods need to be defined. If a method is not defined,
-    # scrapy acts as if the spider middleware does not modify the
-    # passed objects.
+USER_AGENTS = [
+    # Googlebot — 绕过豆瓣 JS 挑战
+    "Mozilla/5.0 (compatible; Googlebot/2.1; +http://www.google.com/bot.html)",
+    # Bingbot
+    "Mozilla/5.0 (compatible; bingbot/2.0; +http://www.bing.com/bingbot.htm)",
+    # Chrome Windows
+    "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0.0.0 Safari/537.36",
+    # Chrome macOS
+    "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0.0.0 Safari/537.36",
+    # Firefox Windows
+    "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:128.0) Gecko/20100101 Firefox/128.0",
+    # Edge Windows
+    "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0.0.0 Safari/537.36 Edg/126.0.0.0",
+]
+
+
+class RandomUserAgentMiddleware:
+    """每次请求随机选择一个 User-Agent"""
+
+    def process_request(self, request, spider):
+        ua = random.choice(USER_AGENTS)
+        request.headers["User-Agent"] = ua
+
+
+class CookieInjectMiddleware:
+    """
+    注入预设 Cookie（从 settings.COOKIE_STRING 读取）。
+
+    在 settings.py 中配置:
+        COOKIE_STRING = "key1=val1; key2=val2; ..."
+    """
+
+    def __init__(self, cookie_string):
+        self.cookies = {}
+        if cookie_string:
+            for part in cookie_string.split(";"):
+                part = part.strip()
+                if "=" in part:
+                    k, v = part.split("=", 1)
+                    self.cookies[k.strip()] = v.strip()
 
     @classmethod
     def from_crawler(cls, crawler):
-        # This method is used by Scrapy to create your spiders.
+        cookie_string = crawler.settings.get("COOKIE_STRING", "")
+        return cls(cookie_string)
+
+    def process_request(self, request, spider):
+        if self.cookies:
+            # 合并到 request.cookies (Scrapy CookiesMiddleware 会处理)
+            for k, v in self.cookies.items():
+                request.cookies.setdefault(k, v)
+
+
+class DoubanChallengeMiddleware:
+    """
+    自动解决豆瓣 JS 反爬挑战页面 (SHA-512 Proof-of-Work)。
+
+    豆瓣会对未验证的 IP 返回挑战页面，包含:
+      - tok: 会话 token
+      - cha: 挑战字符串
+      - red: 重定向 URL
+
+    挑战要求找到 nonce 使 SHA-512(cha + nonce) 以 "0000" 开头。
+    """
+
+    CHALLENGE_MARKER = b'id="sec"'
+    CHALLENGE_URL = "https://movie.douban.com/c"
+
+    def process_response(self, request, response, spider):
+        # 检测是否为挑战页面
+        if response.status == 200 and self.CHALLENGE_MARKER in response.body:
+            logger.info("Douban challenge detected for %s, solving...", request.url)
+
+            # 提取参数
+            tok = self._extract_input(response, "tok")
+            cha = self._extract_input(response, "cha")
+            red = self._extract_input(response, "red")
+
+            if not tok or not cha:
+                logger.error("Failed to extract challenge params from %s", request.url)
+                return response
+
+            logger.info("Challenge params: tok=%s..., cha=%s...", tok[:20], cha[:20])
+
+            # 计算 PoW
+            try:
+                nonce, sol = self._solve_pow(cha)
+                logger.info("PoW solved: nonce=%d", nonce)
+            except Exception as e:
+                logger.error("PoW solve failed: %s", e)
+                return response
+
+            # 提交挑战表单
+            return FormRequest(
+                url=self.CHALLENGE_URL,
+                formdata={"tok": tok, "cha": cha, "sol": sol, "red": red},
+                callback=lambda r: self._after_challenge(r, request),
+                meta={"original_request": request},
+                dont_filter=True,
+            )
+
+        return response
+
+    def _after_challenge(self, response, original_request):
+        """挑战提交后，用获取的 cookie 重试原始请求"""
+        if response.status == 200 and b"window.location" in response.body:
+            logger.info("Challenge passed, retrying original request")
+            # 从 FormRequest 自动继承的 cookies 会传递
+            new_req = original_request.replace(dont_filter=True)
+            return new_req
+
+        logger.warning("Challenge submission returned status %d", response.status)
+        return original_request
+
+    @staticmethod
+    def _extract_input(response, name):
+        """从 HTML 中提取 hidden input 的值"""
+        pattern = f'name="{name}"[^>]*value="([^"]*)"'.encode()
+        match = re.search(pattern, response.body)
+        if match:
+            return match.group(1).decode()
+        return None
+
+    @staticmethod
+    def _solve_pow(cha, difficulty=4):
+        """
+        计算 SHA-512 Proof-of-Work nonce。
+        返回 (nonce, sol_string)。
+        """
+        target_prefix = "0" * difficulty
+        nonce = 0
+        while True:
+            sol = str(nonce)
+            h = hashlib.sha512((cha + sol).encode()).hexdigest()
+            if h.startswith(target_prefix):
+                return nonce, sol
+            nonce += 1
+            if nonce % 100000 == 0:
+                logger.debug("PoW progress: tried %d nonces...", nonce)
+
+
+# ---- 以下为 Scrapy 默认生成模板 (保留以备后续扩展) ----
+
+
+class CrawlerSpiderMiddleware:
+    @classmethod
+    def from_crawler(cls, crawler):
         s = cls()
         crawler.signals.connect(s.spider_opened, signal=signals.spider_opened)
         return s
 
     def process_spider_input(self, response, spider):
-        # Called for each response that goes through the spider
-        # middleware and into the spider.
-
-        # Should return None or raise an exception.
         return None
 
     def process_spider_output(self, response, result, spider):
-        # Called with the results returned from the Spider, after
-        # it has processed the response.
-
-        # Must return an iterable of Request, or item objects.
         for i in result:
             yield i
 
     def process_spider_exception(self, response, exception, spider):
-        # Called when a spider or process_spider_input() method
-        # (from other spider middleware) raises an exception.
-
-        # Should return either None or an iterable of Request or item objects.
         pass
 
     def process_start_requests(self, start_requests, spider):
-        # Called with the start requests of the spider, and works
-        # similarly to the process_spider_output() method, except
-        # that it doesn’t have a response associated.
-
-        # Must return only requests (not items).
         for r in start_requests:
             yield r
 
     def spider_opened(self, spider):
-        spider.logger.info("Spider opened: %s" % spider.name)
+        spider.logger.info("Spider opened: %s", spider.name)
 
 
 class CrawlerDownloaderMiddleware:
-    # Not all methods need to be defined. If a method is not defined,
-    # scrapy acts as if the downloader middleware does not modify the
-    # passed objects.
-
     @classmethod
     def from_crawler(cls, crawler):
-        # This method is used by Scrapy to create your spiders.
         s = cls()
         crawler.signals.connect(s.spider_opened, signal=signals.spider_opened)
         return s
 
     def process_request(self, request, spider):
-        # Called for each request that goes through the downloader
-        # middleware.
-
-        # Must either:
-        # - return None: continue processing this request
-        # - or return a Response object
-        # - or return a Request object
-        # - or raise IgnoreRequest: process_exception() methods of
-        #   installed downloader middleware will be called
         return None
 
     def process_response(self, request, response, spider):
-        # Called with the response returned from the downloader.
-
-        # Must either;
-        # - return a Response object
-        # - return a Request object
-        # - or raise IgnoreRequest
         return response
 
     def process_exception(self, request, exception, spider):
-        # Called when a download handler or a process_request()
-        # (from other downloader middleware) raises an exception.
-
-        # Must either:
-        # - return None: continue processing this exception
-        # - return a Response object: stops process_exception() chain
-        # - return a Request object: stops process_exception() chain
         pass
 
     def spider_opened(self, spider):
-        spider.logger.info("Spider opened: %s" % spider.name)
+        spider.logger.info("Spider opened: %s", spider.name)
