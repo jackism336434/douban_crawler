@@ -1,0 +1,11 @@
+scrapy==2.11.2
+requests==2.32.3
+beautifulsoup4==4.12.3
+lxml==5.2.2
+pymysql==1.1.1
+redis==5.0.7
+sqlalchemy==2.0.31
+pandas==2.2.2
+numpy==2.0.0
+pyecharts==2.0.6
+flask==3.0.3

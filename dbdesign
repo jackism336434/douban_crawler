@@ -1,0 +1,315 @@
+数据库设计时需要兼顾：
+
+1. 满足题目要求；
+2. 方便爬虫插入数据；
+3. 后期方便统计分析；
+4. 数据库不要设计得过于复杂。
+
+对于课程项目采用**6张核心表**，既满足范式要求，又不会过度设计。
+
+---
+
+# 一、数据库表设计
+
+```text id="sqhf4l"
+movie               电影基本信息
+movie_person        导演/编剧/演员关系
+movie_genre         电影类型
+comment             短评
+review              影评
+crawl_log           爬虫日志
+```
+
+如果后期想扩展用户分析，可以再加：
+
+```text id="fjkh9l"
+user
+```
+
+但不是必须。
+
+---
+
+# 二、movie（电影表）
+
+这是核心表。
+
+```sql id="cvr5sl"
+CREATE TABLE movie (
+    movie_id BIGINT PRIMARY KEY COMMENT '豆瓣电影ID',
+
+    movie_name VARCHAR(255) NOT NULL COMMENT '电影名称',
+
+    poster_url TEXT COMMENT '海报图片链接',
+
+    intro LONGTEXT COMMENT '剧情简介',
+
+    country VARCHAR(255) COMMENT '制片国家地区',
+
+    language VARCHAR(255) COMMENT '语言',
+
+    release_date VARCHAR(255) COMMENT '上映日期',
+
+    duration VARCHAR(255) COMMENT '片长',
+
+    imdb_url VARCHAR(255) COMMENT 'IMDb链接',
+
+    alias_name TEXT COMMENT '又名',
+
+    douban_score DECIMAL(3,1) COMMENT '豆瓣评分',
+
+    rating_count INT DEFAULT 0 COMMENT '评价人数',
+
+    comment_count INT DEFAULT 0 COMMENT '短评总数',
+
+    review_count INT DEFAULT 0 COMMENT '影评总数',
+
+    crawl_time DATETIME DEFAULT CURRENT_TIMESTAMP
+);
+```
+
+---
+
+# 三、movie_person（人物关系表）
+
+因为：
+
+* 一部电影可以有多个导演；
+* 一部电影可以有多个编剧；
+* 一部电影可以有多个主演。
+
+所以不建议：
+
+```sql id="w8ltnc"
+director TEXT
+actor TEXT
+```
+
+而是：
+
+```sql id="0c7l40"
+CREATE TABLE movie_person (
+    id BIGINT AUTO_INCREMENT PRIMARY KEY,
+
+    movie_id BIGINT NOT NULL,
+
+    person_name VARCHAR(255) NOT NULL,
+
+    role ENUM(
+        'director',
+        'writer',
+        'actor'
+    ) NOT NULL,
+
+    FOREIGN KEY (movie_id)
+        REFERENCES movie(movie_id)
+);
+```
+
+---
+
+例如：
+
+| movie_id | person_name | role     |
+| -------- | ----------- | -------- |
+| 1291546  | 陈凯歌         | director |
+| 1291546  | 芦苇          | writer   |
+| 1291546  | 张国荣         | actor    |
+| 1291546  | 张丰毅         | actor    |
+| 1291546  | 巩俐          | actor    |
+
+---
+
+# 四、movie_genre（电影类型）
+
+一部电影有多个类型：
+
+```text id="t4ll4x"
+剧情
+爱情
+同性
+```
+
+所以：
+
+```sql id="nq26xh"
+CREATE TABLE movie_genre (
+    id BIGINT AUTO_INCREMENT PRIMARY KEY,
+
+    movie_id BIGINT NOT NULL,
+
+    genre_name VARCHAR(100) NOT NULL,
+
+    FOREIGN KEY (movie_id)
+        REFERENCES movie(movie_id)
+);
+```
+
+---
+
+# 五、comment（短评表）
+
+题目要求：
+
+* 短评数
+* 短评者昵称
+* 短评时间
+* 短评内容
+* 认为有用人数
+
+```sql id="u9qjlwm"
+CREATE TABLE comment (
+    comment_id BIGINT AUTO_INCREMENT PRIMARY KEY,
+
+    movie_id BIGINT NOT NULL,
+
+    nickname VARCHAR(255),
+
+    comment_time DATETIME,
+
+    useful_num INT DEFAULT 0,
+
+    content TEXT,
+
+    crawl_time DATETIME DEFAULT CURRENT_TIMESTAMP,
+
+    INDEX idx_movie_id(movie_id),
+
+    FOREIGN KEY (movie_id)
+        REFERENCES movie(movie_id)
+);
+```
+
+---
+
+# 六、review（影评表）
+
+题目要求：
+
+* 影评数
+* 影评者昵称
+* 影评时间
+* 影评内容
+* 有用人数
+* 无用人数
+* 转发人数
+* 回应人数
+
+```sql id="lyexf1"
+CREATE TABLE review (
+    review_id BIGINT AUTO_INCREMENT PRIMARY KEY,
+
+    movie_id BIGINT NOT NULL,
+
+    nickname VARCHAR(255),
+
+    review_time DATETIME,
+
+    useful_num INT DEFAULT 0,
+
+    useless_num INT DEFAULT 0,
+
+    share_num INT DEFAULT 0,
+
+    reply_num INT DEFAULT 0,
+
+    content LONGTEXT,
+
+    crawl_time DATETIME DEFAULT CURRENT_TIMESTAMP,
+
+    INDEX idx_movie_id(movie_id),
+
+    FOREIGN KEY (movie_id)
+        REFERENCES movie(movie_id)
+);
+```
+
+---
+
+# 七、crawl_log（日志表）
+
+用于记录失败任务。
+
+```sql id="l7r8d2"
+CREATE TABLE crawl_log (
+    id BIGINT AUTO_INCREMENT PRIMARY KEY,
+
+    movie_id BIGINT,
+
+    crawl_type VARCHAR(50),
+
+    status TINYINT,
+
+    error_message TEXT,
+
+    crawl_time DATETIME DEFAULT CURRENT_TIMESTAMP
+);
+```
+
+---
+
+# 八、ER 图
+
+```text id="8gm4xn"
+movie
+ ├── movie_person
+ ├── movie_genre
+ ├── comment
+ └── review
+```
+
+关系：
+
+```text id="krz5de"
+movie 1 —— N comment
+movie 1 —— N review
+movie 1 —— N movie_person
+movie 1 —— N movie_genre
+```
+
+---
+
+# 九、最终表结构统计
+
+| 表名           | 用途       |
+| ------------ | -------- |
+| movie        | 电影基本信息   |
+| movie_person | 导演/编剧/演员 |
+| movie_genre  | 类型       |
+| comment      | 短评       |
+| review       | 影评       |
+| crawl_log    | 日志       |
+
+共：6张表
+
+
+---
+
+
+
+后面做数据分析时非常方便。
+
+---
+
+
+
+### 表：
+
+```text id="m5rjlwm"
+movie
+movie_person
+movie_genre
+comment
+review
+crawl_log
+```
+
+### 满足：
+
+✅ 题目所有字段要求；
+
+✅ 第三范式；
+
+✅ 百万级评论数据；
+
+✅ 后期数据分析和可视化。
