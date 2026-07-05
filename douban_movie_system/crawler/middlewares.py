@@ -62,6 +62,42 @@ class CookieInjectMiddleware:
                 request.cookies.setdefault(k, v)
 
 
+class SecDoubanRedirectMiddleware:
+    """
+    拦截重定向到 sec.douban.com（豆瓣反爬安全系统）。
+
+    当豆瓣检测到爬虫行为时，会 302 重定向到 sec.douban.com。
+    本中间件在 RedirectMiddleware 之前拦截这个重定向，
+    不跟进而是重试原始请求。
+    """
+
+    def process_response(self, request, response, spider):
+        # 检测 302/301 重定向到 sec.douban.com
+        if response.status in (301, 302, 307):
+            location = response.headers.get("Location", b"").decode(errors="replace")
+            if "sec.douban.com" in location:
+                spider.logger.warning(
+                    "Blocked by sec.douban.com for %s — will retry after delay",
+                    request.url,
+                )
+                # 返回新请求（不跟进重定向），Scrapy 会重新调度
+                retry_req = request.replace(dont_filter=True)
+                retry_req.meta["sec_retry_count"] = (
+                    request.meta.get("sec_retry_count", 0) + 1
+                )
+                # 最多重试3次，超过则放弃
+                if retry_req.meta["sec_retry_count"] > 3:
+                    spider.logger.error(
+                        "Giving up on %s after %d sec retries",
+                        request.url,
+                        retry_req.meta["sec_retry_count"],
+                    )
+                    raise IgnoreRequest("Blocked by sec.douban.com too many times")
+                return retry_req
+
+        return response
+
+
 class DoubanChallengeMiddleware:
     """
     自动解决豆瓣 JS 反爬挑战页面 (SHA-512 Proof-of-Work)。
