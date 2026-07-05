@@ -7,7 +7,7 @@ NEWSPIDER_MODULE = "crawler.spiders"
 # Anti-Crawl & Politeness
 # ============================================================
 DOWNLOAD_DELAY = 10.0                    # 请求间隔（秒）
-CONCURRENT_REQUESTS = 1                 # 全局并发数
+CONCURRENT_REQUESTS =3                # 全局并发数
 CONCURRENT_REQUESTS_PER_DOMAIN = 1     # 单域名并发数
 CONCURRENT_REQUESTS_PER_IP = 1         # 单IP并发数
 
