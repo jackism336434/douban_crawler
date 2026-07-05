@@ -88,12 +88,7 @@ python database/init_crawl_target.py
 
 这会创建 `crawl_target` 表并预填 21 个常见电影类型（剧情、喜剧、科幻、动画…）。
 
-### 导入公开数据集（快速获得数据）
 
-```bash
-python import_kaggle.py        # 电影元数据 (67K)
-python import_comments_v2.py   # 短评 (640K)
-```
 
 ### 运行爬虫
 
@@ -151,7 +146,7 @@ python web/app.py
 
 ## 前端设计
 
-自主设计「**Film Archive**」设计系统，拒绝模板化的 AI 风格：
+自主设计「**Film Archive**」设计系统，采用以下风格：
 
 - **配色**: 纸白 `#fafaf8` + 墨黑 `#1c1c1c` + 投影灯红 `#c1272d`（单点强调）
 - **排版**: Noto Serif SC 衬线体（标题/数字/电影名） + 系统无衬线（正文）
@@ -228,16 +223,7 @@ douban_crawler/
 - 上映年份趋势
 - 短评 / 影评数量统计
 
-## 课程设计报告
 
-运行以下命令自动生成报告：
-
-```bash
-python generate_report.py
-# → 豆瓣电影信息采集与分析系统_课程设计报告.docx
-```
-
-报告包含封面、摘要、目录、6 章正文（绪论 / 相关技术 / 系统设计 / 系统实现 / 系统测试 / 总结展望）、参考文献和致谢，共 167 段正文 + 6 个数据表格。
 
 ## License
 
