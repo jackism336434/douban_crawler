@@ -1,0 +1,252 @@
+{% extends "base.html" %}
+{% block title %}爬取管理 · 豆瓣电影档案{% endblock %}
+
+{% block content %}
+
+<div class="section-head">
+    <h2>爬取目标管理</h2>
+    <span class="count">{{ target_count }} 个目标 · {{ done_count }} 已完成</span>
+</div>
+
+<!-- Messages -->
+{% if msg %}
+<div class="notice notice-info mb-3">{{ msg }}</div>
+{% endif %}
+{% if error %}
+<div class="notice notice-warning mb-3">{{ error }}</div>
+{% endif %}
+
+<!-- Crawl Control -->
+<div class="info-card mb-4" id="crawl-control">
+    <div style="display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 16px;">
+        <div>
+            <h5 style="margin-bottom: 4px;">采集控制</h5>
+            <p class="meta" style="margin: 0;">
+                <span id="crawl-status-text">就绪</span>
+                <span id="crawl-progress" style="margin-left: 12px;"></span>
+            </p>
+        </div>
+        <form method="post" action="/targets/crawl" id="crawl-form">
+            <button type="submit" class="btn btn-primary" id="crawl-btn">
+                开始采集
+            </button>
+        </form>
+    </div>
+
+    <!-- Log output (hidden until crawling starts) -->
+    <div id="log-panel" style="display: none; margin-top: 16px;">
+        <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 8px;">
+            <span class="meta">实时日志</span>
+            <span class="meta" id="log-status"></span>
+        </div>
+        <pre id="log-content" style="
+            background: var(--ink); color: #a8d8a8;
+            padding: 14px 18px; border-radius: 4px;
+            font-family: var(--mono); font-size: 0.78rem;
+            line-height: 1.55; max-height: 360px; overflow-y: auto;
+            white-space: pre-wrap; word-break: break-all;
+            margin: 0;
+        "></pre>
+    </div>
+</div>
+
+<!-- Add form -->
+<div class="info-card mb-4">
+    <h5 style="margin-bottom: 16px;">添加新目标</h5>
+    <form method="post" action="/targets/add" class="search-group" style="max-width: 100%;">
+        <input
+            type="text"
+            name="target_name"
+            class="search-input"
+            placeholder="输入类型名称，如：科幻、悬疑、黑色电影…"
+            required
+            autofocus
+            style="flex: 1;"
+        >
+        <select name="target_type" class="search-input" style="max-width: 140px;">
+            <option value="genre">类型</option>
+            <option value="tag">标签</option>
+            <option value="keyword">关键词</option>
+        </select>
+        <button type="submit" class="btn btn-primary">添加</button>
+    </form>
+
+    {% if suggestions %}
+    <p class="meta mt-2">
+        数据库中已存在但未加入目标：
+        {% for s in suggestions[:12] %}
+        <button
+            type="button"
+            class="genre-tag"
+            style="cursor: pointer; font-size: 0.75rem;"
+            onclick="document.querySelector('input[name=target_name]').value='{{ s }}'"
+        >{{ s }}</button>
+        {% endfor %}
+    </p>
+    {% endif %}
+</div>
+
+<!-- Target list -->
+{% if targets %}
+<div class="table-wrap">
+    <table>
+        <thead>
+            <tr>
+                <th>名称</th>
+                <th>类型</th>
+                <th>状态</th>
+                <th>已爬取</th>
+                <th>最近爬取</th>
+                <th></th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for t in targets %}
+            <tr>
+                <td class="movie-title">{{ t.target_name }}</td>
+                <td class="meta">
+                    {% if t.target_type == 'genre' %}类型
+                    {% elif t.target_type == 'tag' %}标签
+                    {% else %}关键词
+                    {% endif %}
+                </td>
+                <td>
+                    {% if t.status == 'idle' %}
+                    <span class="genre-tag" style="color: var(--ink-muted); border-color: var(--ink-muted);">待采集</span>
+                    {% elif t.status == 'pending' %}
+                    <span class="genre-tag" style="color: #d97706; border-color: #fbbf24;">等待中</span>
+                    {% elif t.status == 'running' %}
+                    <span class="genre-tag" style="color: #2563eb; border-color: #93c5fd;">采集中</span>
+                    {% elif t.status == 'done' %}
+                    <span class="genre-tag" style="color: #16a34a; border-color: #86efac;">已完成</span>
+                    {% else %}
+                    <span class="genre-tag">{{ t.status }}</span>
+                    {% endif %}
+                </td>
+                <td class="meta">{{ t.movie_count or 0 }} 部</td>
+                <td class="meta">{{ t.last_crawl_time or '—' }}</td>
+                <td>
+                    <form method="post" action="/targets/{{ t.id }}/delete" style="display:inline;"
+                          onsubmit="return confirm('确定删除「{{ t.target_name }}」吗？')">
+                        <button type="submit" class="btn btn-outline btn-sm">删除</button>
+                    </form>
+                    {% if t.status == 'done' %}
+                    <form method="post" action="/targets/{{ t.id }}/reset" style="display:inline;">
+                        <button type="submit" class="btn btn-outline btn-sm">重新采集</button>
+                    </form>
+                    {% endif %}
+                </td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+{% else %}
+<div class="notice notice-info">
+    暂无爬取目标。请先添加要采集的电影类型或主题，然后点击「开始采集」。
+</div>
+{% endif %}
+
+{% endblock %}
+
+{% block extra_scripts %}
+<script>
+(function() {
+    var btn = document.getElementById('crawl-btn');
+    var form = document.getElementById('crawl-form');
+    var statusText = document.getElementById('crawl-status-text');
+    var progressEl = document.getElementById('crawl-progress');
+    var logPanel = document.getElementById('log-panel');
+    var logContent = document.getElementById('log-content');
+    var logStatus = document.getElementById('log-status');
+
+    var polling = false;
+    var timer = null;
+
+    function disableButton(msg) {
+        btn.textContent = msg || '采集中…';
+        btn.disabled = true;
+        btn.style.opacity = '0.6';
+        btn.style.cursor = 'not-allowed';
+    }
+
+    function enableButton(msg) {
+        btn.textContent = msg || '开始采集';
+        btn.disabled = false;
+        btn.style.opacity = '1';
+        btn.style.cursor = 'pointer';
+    }
+
+    function checkStatus() {
+        fetch('/targets/crawl/status')
+            .then(function(r) { return r.json(); })
+            .then(function(data) {
+                if (data.running) {
+                    if (!polling) {
+                        polling = true;
+                        logPanel.style.display = 'block';
+                        disableButton('采集中…');
+                    }
+                    statusText.textContent = '运行中 (PID: ' + data.pid + ')';
+                    progressEl.textContent = data.progress || '';
+                    if (data.log_tail) {
+                        logContent.textContent = data.log_tail;
+                        logContent.scrollTop = logContent.scrollHeight;
+                    }
+                    logStatus.textContent = data.started_at ? '启动于 ' + data.started_at : '';
+                    timer = setTimeout(checkStatus, 2000);
+                } else {
+                    if (polling) {
+                        // Just finished
+                        polling = false;
+                        enableButton('开始采集');
+                        statusText.textContent = '已完成';
+                        progressEl.textContent = '';
+                        logStatus.textContent = '采集结束';
+                        if (data.log_tail) {
+                            logContent.textContent = data.log_tail;
+                            logContent.scrollTop = logContent.scrollHeight;
+                        }
+                        // Clear panel after 10s
+                        setTimeout(function() {
+                            if (!polling) logPanel.style.display = 'none';
+                        }, 10000);
+                    } else {
+                        enableButton('开始采集');
+                        statusText.textContent = '就绪';
+                        progressEl.textContent = '';
+                    }
+                }
+            })
+            .catch(function() {
+                enableButton('开始采集');
+                statusText.textContent = '就绪';
+            });
+    }
+
+    // Check on page load
+    checkStatus();
+
+    // Intercept form submit — do it via fetch so we stay on the page
+    form.addEventListener('submit', function(e) {
+        e.preventDefault();
+        disableButton('启动中…');
+        statusText.textContent = '正在启动爬虫…';
+
+        var fd = new FormData(form);
+        fetch(form.action, { method: 'POST', body: fd })
+            .then(function() {
+                // Start polling
+                polling = true;
+                logPanel.style.display = 'block';
+                logContent.textContent = '等待爬虫输出…';
+                checkStatus();
+            })
+            .catch(function() {
+                enableButton('开始采集');
+                statusText.textContent = '启动失败';
+            });
+    });
+})();
+</script>
+{% endblock %}

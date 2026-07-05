@@ -6,7 +6,10 @@
 <!-- Hero stat: the average score, set large as a design element -->
 <div class="stat-group">
     <div class="stat-item">
-        <div class="stat-value accent">{{ "%.1f"|format(stats.avg_score|default(0)|float) }}</div>
+        <div class="stat-value accent">
+            {% set score = stats.avg_score | default(0) | float %}
+            {% if score %}{{ "%.1f"|format(score) }}{% else %}&mdash;{% endif %}
+        </div>
         <div class="stat-label">平均评分</div>
     </div>
     <div class="stat-item">

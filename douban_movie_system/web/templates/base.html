@@ -287,20 +287,25 @@
         /* ── Stat display (editorial) ───────────────────────── */
         .stat-group {
             display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
-            gap: 48px var(--gap);
+            grid-template-columns: repeat(4, 1fr);
+            gap: 12px 32px;
             margin: 48px 0;
         }
         .stat-item {
-            /* Nothing — just type */
+            overflow: hidden;
+            min-width: 0;
         }
         .stat-value {
             font-family: var(--serif);
-            font-size: clamp(3rem, 6vw, 5.5rem);
+            font-size: clamp(2.5rem, 5vw, 4.5rem);
             font-weight: 700;
-            line-height: 1;
+            line-height: 1.08;
             color: var(--ink);
             letter-spacing: -0.02em;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+            padding-bottom: 2px;
         }
         .stat-value.accent {
             color: var(--red);
@@ -308,8 +313,9 @@
         .stat-label {
             font-size: 0.82rem;
             color: var(--ink-light);
-            margin-top: 4px;
+            margin-top: 2px;
             letter-spacing: 0.04em;
+            white-space: nowrap;
         }
 
         /* ── Table (minimal) ────────────────────────────────── */
@@ -608,10 +614,10 @@
 
             .stat-group {
                 grid-template-columns: repeat(2, 1fr);
-                gap: 32px var(--gap);
+                gap: 28px 20px;
             }
             .stat-value {
-                font-size: clamp(2.5rem, 8vw, 4rem);
+                font-size: clamp(2.2rem, 7vw, 3.5rem);
             }
 
             .detail-layout {
@@ -631,7 +637,10 @@
         @media (max-width: 480px) {
             .stat-group {
                 grid-template-columns: 1fr 1fr;
-                gap: 24px 12px;
+                gap: 24px 16px;
+            }
+            .stat-value {
+                font-size: clamp(1.8rem, 6vw, 2.8rem);
             }
         }
 
@@ -672,6 +681,7 @@
                     <li><a href="/"          class="{% if request.path == '/' %}active{% endif %}">总览</a></li>
                     <li><a href="/movies"    class="{% if request.path.startswith('/movies') %}active{% endif %}">电影</a></li>
                     <li><a href="/analysis"  class="{% if request.path.startswith('/analysis') %}active{% endif %}">分析</a></li>
+                    <li><a href="/targets"   class="{% if request.path.startswith('/targets') %}active{% endif %}">爬取</a></li>
                 </ul>
             </nav>
         </div>

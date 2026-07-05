@@ -53,6 +53,11 @@ class MySQLPipeline:
         logger.info("MySQLPipeline closed")
 
     def process_item(self, item, spider):
+        # 数据清洗：跳过无名称或无评分的电影
+        if isinstance(item, MovieItem):
+            if not item.get("movie_name"):
+                logger.debug("Dropping movie %s: no name", item.get("movie_id"))
+                return item
         self.buffer.append(item)
         if len(self.buffer) >= self.batch_size:
             self._flush()

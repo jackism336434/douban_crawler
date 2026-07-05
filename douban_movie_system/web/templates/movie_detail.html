@@ -94,14 +94,43 @@
             <dd><a href="{{ movie.imdb_url }}" target="_blank" rel="noopener" style="font-size: 0.85rem; word-break: break-all;">{{ movie.imdb_url }}</a></dd>
             {% endif %}
         </dl>
+
+        <hr style="margin: 16px 0;">
+
+        <h5 style="margin-bottom: 8px;">数据采集</h5>
+        <form method="post" action="/movies/{{ movie.movie_id }}/crawl-content" id="crawlContentForm" style="margin-bottom: 8px;">
+            <button type="submit" class="btn btn-primary btn-sm" style="width: 100%;" id="crawlContentBtn">
+                采集短评 & 影评
+            </button>
+        </form>
+        <p class="meta" style="font-size: 0.72rem; line-height: 1.5;" id="crawlContentStatus">
+            {% if scraped_comment_count and scraped_review_count %}
+            已采集 {{ scraped_comment_count }} 条短评 / {{ scraped_review_count }} 篇影评
+            {% elif scraped_comment_count %}
+            已采集 {{ scraped_comment_count }} 条短评，暂无影评
+            {% elif scraped_review_count %}
+            已采集 {{ scraped_review_count }} 篇影评，暂无短评
+            {% else %}
+            豆瓣标注 {{ movie.comment_count or 0 }} 条短评 · {{ movie.review_count or 0 }} 篇影评
+            {% endif %}
+        </p>
     </aside>
 </div>
 
-{% if comments %}
+<!-- Comments section -->
 <div class="section-head">
-    <h2>热门短评</h2>
+    <h2>短评</h2>
+    <span class="count">
+        {% if comments %}
+        {{ comments|length }} 条已采集
+        {% if movie.comment_count %} / 豆瓣共 {{ movie.comment_count }} 条{% endif %}
+        {% else %}
+        豆瓣共 {{ movie.comment_count or 0 }} 条
+        {% endif %}
+    </span>
 </div>
 
+{% if comments %}
 {% for c in comments %}
 <div class="comment-card">
     <div class="comment-header">
@@ -114,6 +143,92 @@
     <p class="comment-body">{{ c.content }}</p>
 </div>
 {% endfor %}
+{% else %}
+<div class="notice notice-info">
+    {% if movie.comment_count %}
+    豆瓣上有 {{ movie.comment_count }} 条短评，但尚未采集。
+    {% else %}
+    暂无短评数据。
+    {% endif %}
+    点击右侧「采集短评 & 影评」按钮开始抓取。
+</div>
 {% endif %}
 
+<!-- Reviews section -->
+<div class="section-head">
+    <h2>影评</h2>
+    <span class="count">
+        {% if reviews %}
+        {{ reviews|length }} 篇已采集
+        {% if movie.review_count %} / 豆瓣共 {{ movie.review_count }} 篇{% endif %}
+        {% else %}
+        豆瓣共 {{ movie.review_count or 0 }} 篇
+        {% endif %}
+    </span>
+</div>
+
+{% if reviews %}
+{% for r in reviews %}
+<div class="comment-card">
+    <div class="comment-header">
+        <span class="comment-author">{{ r.nickname or '匿名' }}</span>
+        <span class="comment-meta">
+            👍 {{ r.useful_num or 0 }}
+            {% if r.reply_num %} &middot; 💬 {{ r.reply_num }}{% endif %}
+            &middot; {{ r.review_time or '' }}
+        </span>
+    </div>
+    <p class="comment-body">{{ r.content }}</p>
+</div>
+{% endfor %}
+{% else %}
+<div class="notice notice-info">
+    {% if movie.review_count %}
+    豆瓣上有 {{ movie.review_count }} 篇影评，但尚未采集。
+    {% else %}
+    暂无影评数据。
+    {% endif %}
+    点击右侧「采集短评 & 影评」按钮开始抓取。
+</div>
+{% endif %}
+
+{% endblock %}
+
+{% block extra_scripts %}
+<script>
+(function() {
+    var form = document.getElementById('crawlContentForm');
+    var btn = document.getElementById('crawlContentBtn');
+    var status = document.getElementById('crawlContentStatus');
+    if (!form) return;
+
+    form.addEventListener('submit', function(e) {
+        e.preventDefault();
+        btn.textContent = '启动中…';
+        btn.disabled = true;
+        btn.style.opacity = '0.6';
+        status.textContent = '正在后台采集，请稍候刷新页面…';
+
+        var fd = new FormData(form);
+        fetch(form.action, { method: 'POST', body: fd })
+            .then(function(r) { return r.json(); })
+            .then(function(data) {
+                if (data.ok) {
+                    status.textContent = '采集任务已启动 (PID: ' + data.pid + ')。1-2 分钟后刷新查看结果。';
+                } else {
+                    status.textContent = data.error || '启动失败';
+                    btn.textContent = '采集短评 & 影评';
+                    btn.disabled = false;
+                    btn.style.opacity = '1';
+                }
+            })
+            .catch(function() {
+                status.textContent = '请求失败，请在终端手动运行爬虫';
+                btn.textContent = '采集短评 & 影评';
+                btn.disabled = false;
+                btn.style.opacity = '1';
+            });
+    });
+})();
+</script>
 {% endblock %}
