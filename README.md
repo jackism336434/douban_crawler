@@ -165,7 +165,7 @@ python web/app.py
 | 自适应限速 | AutoThrottle — 根据响应延迟自动调整请求间隔 |
 | 请求去重 | RedisDupeFilter — 跨重启持久化已抓 URL |
 | 失败重试 | RetryMiddleware — 403/418/5xx 自动重试 |
-| 黑名单过滤 | `crawl_target` 禁止情色/色情/成人等标签 |
+
 
 > **注意**: 大规模采集建议使用多账号 Cookie + 代理 IP 轮换。
 
@@ -210,7 +210,8 @@ douban_crawler/
 ├── requirements.txt
 ├── dbdesign                           # 数据库设计文档
 ├── masterplan                         # 项目设计说明书
-└── README.md
+└── README.md                          # 项目介绍,及其运行说明
+|——douban_dataset.sql                  # 数据库导入脚本
 ```
 
 ## 数据分析维度
@@ -223,6 +224,21 @@ douban_crawler/
 - 上映年份趋势
 - 短评 / 影评数量统计
 
+
+### 导入步骤（命令行方式，推荐）
+
+1. 将 `douban_dataset.sql` 放到目录
+
+2. 在终端执行以下命令（需要输入 root 密码）：
+```bash
+# 创建数据库
+mysql -u root -p -e "CREATE DATABASE IF NOT EXISTS douban_movie_system;"
+
+# 导入数据
+mysql -u root -p douban_movie_system < douban_dataset.sql
+
+# 创建专用用户并授权
+mysql -u root -p -e "CREATE USER IF NOT EXISTS 'crawler'@'localhost' IDENTIFIED BY 'crawler'; GRANT ALL PRIVILEGES ON douban_movie_system.* TO 'crawler'@'localhost'; FLUSH PRIVILEGES;"
 
 
 ## License

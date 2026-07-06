@@ -37,3 +37,6 @@ Thumbs.db
 CLAUDE.md
 .claude/
 *.docx
+# 数据库文件
+
+douban_dataset.sql
