@@ -123,7 +123,7 @@
     <span class="count">
         {% if comments %}
         {{ comments|length }} 条已采集
-        {% if movie.comment_count %} / 豆瓣共 {{ movie.comment_count }} 条{% endif %}
+        {% if movie.comment_count %}      <!-- 豆瓣共 {{ movie.comment_count }} 条{% endif %}**/-->
         {% else %}
         豆瓣共 {{ movie.comment_count or 0 }} 条
         {% endif %}
@@ -160,7 +160,7 @@
     <span class="count">
         {% if reviews %}
         {{ reviews|length }} 篇已采集
-        {% if movie.review_count %} / 豆瓣共 {{ movie.review_count }} 篇{% endif %}
+        {% if movie.review_count %}     <!-- 豆瓣共 {{ movie.review_count }} 篇{% endif %}**/-->
         {% else %}
         豆瓣共 {{ movie.review_count or 0 }} 篇
         {% endif %}
